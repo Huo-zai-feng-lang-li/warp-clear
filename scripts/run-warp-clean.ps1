@@ -1,11 +1,11 @@
 # Warp清理工具 - 在线运行版本
 # 用法: irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex
 
-param(
-    [Parameter(Mandatory=$false)]
-    [ValidateSet("reset", "deep", "migrate", "help")]
-    [string]$Action = "help"
-)
+# 从URL参数中获取Action参数
+$Action = "help"
+if ($MyInvocation.Line -match "-Action\s+(\w+)") {
+    $Action = $matches[1]
+}
 
 # 安全编码设置
 try {

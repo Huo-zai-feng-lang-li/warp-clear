@@ -7,13 +7,13 @@
 
 ```powershell
 # 标准重置（推荐新手使用）
-irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex -Action reset
+irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/reset.ps1 | iex
 
 # 深度清理（彻底清除所有痕迹）
-irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex -Action deep
+irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/deep.ps1 | iex
 
 # UID迁移（登录新账号后使用）
-irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex -Action migrate
+irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/migrate.ps1 | iex
 ```
 
 ### 方案二：本地运行
