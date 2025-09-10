@@ -1,4 +1,38 @@
-## 1) Reset-Warp-Fixed.ps1 — 标准重置（本地“新设备/新用户”）
+# Warp 清理工具使用指南
+
+## 🎯 推荐使用方案
+
+### 方案一：在线运行（推荐）
+直接复制粘贴命令，无需下载文件：
+
+```powershell
+# 标准重置（推荐新手使用）
+irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex -Action reset
+
+# 深度清理（彻底清除所有痕迹）
+irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex -Action deep
+
+# UID迁移（登录新账号后使用）
+irm https://raw.githubusercontent.com/Huo-zai-feng-lang-li/warp-clear/main/scripts/run-warp-clean.ps1 | iex -Action migrate
+```
+
+### 方案二：本地运行
+如果在线运行有问题，可以下载到本地运行：
+
+```powershell
+# 标准重置
+pwsh -ExecutionPolicy Bypass -File scripts\Reset-Warp-Fixed-Auto-CN-Safe.ps1
+
+# 深度清理
+pwsh -ExecutionPolicy Bypass -File scripts\Deep-Clean-Warp-Auto-CN-Safe.ps1
+
+# UID迁移
+pwsh -ExecutionPolicy Bypass -File scripts\Secondary-UID-Migration-Auto-CN-Safe.ps1
+```
+
+## 📋 脚本说明
+
+### 1) Reset-Warp-Fixed.ps1 — 标准重置（本地"新设备/新用户"）
 
 •  适用场景
 •  需要让 Warp 在下次启动时认为当前机器与用户都是全新状态
@@ -24,8 +58,6 @@
 •  产出与副作用
 •  产出：桌面备份目录、全新的本地 Warp 目录结构和 UUID
 •  副作用：清空本地会话、数据库与缓存；下次启动需重新登录
-•  运行命令
-•  pwsh -ExecutionPolicy Bypass -File scripts\Reset-Warp-Fixed.ps1
 
 ## 2) Deep-Clean-Warp.ps1 — 深度清理（最大范围的“彻底卸载”式清理）
 
@@ -95,9 +127,17 @@
 •  运行命令
 •  pwsh -ExecutionPolicy Bypass -File scripts\Secondary-UID-Migration.ps1
 
-补充建议
-•  使用顺序建议
-•  一般问题：先尝试 Reset-Warp-Fixed.ps1（影响面较小、易恢复）
-•  若需要“干净地重来”：使用 Deep-Clean-Warp.ps1（最彻底）
-•  账号切换后配置不跟随：使用 Secondary-UID-Migration.ps1（迁移所有权）
-•  自动化/无交互运行
+## 💡 使用建议
+
+### 使用顺序建议
+•  一般问题：先尝试标准重置（影响面较小、易恢复）
+•  若需要"干净地重来"：使用深度清理（最彻底）
+•  账号切换后配置不跟随：使用UID迁移（迁移所有权）
+
+### 注意事项
+•  建议以管理员身份运行PowerShell
+•  所有脚本都会自动备份数据到桌面
+•  深度清理会清除所有Warp痕迹，请谨慎使用
+• UID迁移需要在登录新账号后执行
+
+**免责声明：** 使用本工具前请确保已备份重要数据。作者不对使用本工具造成的任何数据丢失负责。
