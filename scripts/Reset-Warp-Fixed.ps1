@@ -1,5 +1,11 @@
 # Warp Complete Reset Script - Fixed Version (No Unicode Issues)
 # Usage: Run PowerShell as Administrator, then execute this script
+# Parameters:
+#   -Force : Skip confirmation and run automatically
+
+param(
+    [switch]$Force
+)
 
 Write-Host ""
 Write-Host "===================================================" -ForegroundColor Cyan
@@ -50,11 +56,15 @@ if (-not $isAdmin) {
 
 Write-Host "WARNING: This operation will completely delete all Warp user data!" -ForegroundColor Red
 Write-Host ""
-$confirm = Read-Host "Confirm to continue? (Type 'RESET' to confirm, any other key to cancel)"
 
-if ($confirm -ne "RESET") {
-    Write-Host "Operation cancelled" -ForegroundColor Yellow
-    exit 0
+if (-not $Force) {
+    $confirm = Read-Host "Confirm to continue? (Type 'RESET' to confirm, any other key to cancel)"
+    if ($confirm -ne "RESET") {
+        Write-Host "Operation cancelled" -ForegroundColor Yellow
+        exit 0
+    }
+} else {
+    Write-Host "Running in Force mode - skipping confirmation" -ForegroundColor Yellow
 }
 
 # Create backup
@@ -241,12 +251,23 @@ Write-Host "     cleared via software" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "Recovery commands (if needed):" -ForegroundColor Cyan
-Write-Host "   # Restore file data" -ForegroundColor Gray
-Write-Host "   Remove-Item '$WarpPath' -Recurse -Force" -ForegroundColor Gray
-Write-Host "   Copy-Item '$BackupPath\Warp' '$env:LOCALAPPDATA\warp\Warp' -Recurse -Force" -ForegroundColor Gray
-Write-Host "" -ForegroundColor Gray
-Write-Host "   # Restore registry" -ForegroundColor Gray
-Write-Host "   reg import '$BackupPath\WarpRegistry.reg'" -ForegroundColor Gray
+Write-Host ""
+Write-Host "   # Full recovery command (run in PowerShell):" -ForegroundColor Yellow
+Write-Host "   # This will restore all data and remove backup" -ForegroundColor Yellow
+Write-Host ""
+$recoveryCommand = @"
+if (Test-Path '$BackupPath') {
+    Write-Host 'Restoring Warp data...' -ForegroundColor Yellow
+    if (Test-Path '$WarpPath') { Remove-Item '$WarpPath' -Recurse -Force }
+    if (Test-Path '$BackupPath\Warp') { Copy-Item '$BackupPath\Warp' '$env:LOCALAPPDATA\warp\Warp' -Recurse -Force }
+    if (Test-Path '$BackupPath\WarpRegistry.reg') { reg import '$BackupPath\WarpRegistry.reg' }
+    Remove-Item '$BackupPath' -Recurse -Force
+    Write-Host 'Recovery completed and backup deleted!' -ForegroundColor Green
+} else {
+    Write-Host 'Backup not found at: $BackupPath' -ForegroundColor Red
+}
+"@
+Write-Host $recoveryCommand -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "Reset completed! You can now start Warp to experience a completely new user identity." -ForegroundColor Green
