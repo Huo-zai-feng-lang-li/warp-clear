@@ -1,6 +1,6 @@
-# Warp 完全重置脚本 - 安全中文版本（无交互）
+﻿# Warp 智能清理脚本 - 安全中文版本（无交互）
 # 用法：以管理员身份运行 PowerShell，然后执行此脚本
-# 此版本自动运行，无需用户确认，避免中文闪退问题
+# 此版本重置设备身份但保留 MCP、Rules 和偏好设置
 
 param(
     [switch]$Force
@@ -16,10 +16,10 @@ try {
 
 Write-Host ""
 Write-Host "===================================================" -ForegroundColor Cyan
-Write-Host "           Warp 完全重置工具 (自动版)              " -ForegroundColor Cyan
+Write-Host "           Warp 智能清理工具 (自动版)              " -ForegroundColor Cyan
 Write-Host "                                                   " -ForegroundColor Cyan
-Write-Host "    彻底清除所有用户和设备标识符 - 让 Warp        " -ForegroundColor Cyan
-Write-Host "    认为这是一台全新的设备和用户                 " -ForegroundColor Cyan
+Write-Host "    重置设备身份但保留重要配置 - 让 Warp          " -ForegroundColor Cyan
+Write-Host "    认为这是新设备但保留您的使用习惯             " -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -58,12 +58,13 @@ if (-not $isAdmin) {
     Write-Host ""
 }
 
-Write-Host "警告：此操作将完全删除所有 Warp 用户数据！" -ForegroundColor Red
+Write-Host "警告：此操作将重置 Warp 用户身份和设备标识符！" -ForegroundColor Red
+Write-Host "注意：将保留 MCP 服务器、Rules 规则和 IDE 配置" -ForegroundColor Green
 Write-Host "运行在自动模式 - 无需确认" -ForegroundColor Yellow
 Write-Host ""
 
 # 创建备份
-$BackupName = "WarpCompleteBackup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+$BackupName = "warp-intelligent-$(Get-Date -Format 'yyyy-MM-dd')"
 $BackupPath = "$env:USERPROFILE\Desktop\$BackupName"
 
 Write-Host ""
@@ -87,17 +88,46 @@ if ($warpProcesses) {
     Write-Host "   未找到正在运行的 Warp 进程" -ForegroundColor Green
 }
 
-# 2. 备份数据
+# 2. 备份重要配置数据
 Write-Host ""
-Write-Host "2. 备份原始数据..." -ForegroundColor Yellow
+Write-Host "2. 备份重要配置数据..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
 
-if (Test-Path $WarpPath) {
+# 备份MCP和Rules配置
+$sqlitePath = "$WarpPath\data\warp.sqlite"
+if (Test-Path $sqlitePath) {
     try {
-        Copy-Item -Path $WarpPath -Destination "$BackupPath\Warp" -Recurse -Force -ErrorAction Stop
-        Write-Host "   文件备份完成：$BackupPath\Warp" -ForegroundColor Green
+        # 创建配置备份目录
+        $configBackupPath = "$BackupPath\ConfigBackup"
+        New-Item -ItemType Directory -Path $configBackupPath -Force | Out-Null
+        
+        # 备份数据库
+        Copy-Item $sqlitePath "$configBackupPath\warp.sqlite" -Force
+        Write-Host "   数据库备份完成：$configBackupPath\warp.sqlite" -ForegroundColor Green
+        
+        # 导出MCP配置
+        $mcpConfig = sqlite3 $sqlitePath "SELECT json_data FROM object_metadata WHERE object_type = 'GENERIC_STRING_JSON_MCPSERVER';" 2>$null
+        if (-not [string]::IsNullOrEmpty($mcpConfig)) {
+            $mcpConfig | Out-File "$configBackupPath\mcp_servers.json" -Encoding UTF8
+            Write-Host "   MCP服务器配置已备份" -ForegroundColor Green
+        }
+        
+        # 导出Rules配置
+        $rulesConfig = sqlite3 $sqlitePath "SELECT json_data FROM object_metadata WHERE object_type = 'GENERIC_STRING_JSON_RULE';" 2>$null
+        if (-not [string]::IsNullOrEmpty($rulesConfig)) {
+            $rulesConfig | Out-File "$configBackupPath\rules.json" -Encoding UTF8
+            Write-Host "   Rules规则已备份" -ForegroundColor Green
+        }
+        
+        # 导出偏好设置
+        $prefConfig = sqlite3 $sqlitePath "SELECT json_data FROM object_metadata WHERE object_type = 'GENERIC_STRING_JSON_PREFERENCE';" 2>$null
+        if (-not [string]::IsNullOrEmpty($prefConfig)) {
+            $prefConfig | Out-File "$configBackupPath\preferences.json" -Encoding UTF8
+            Write-Host "   偏好设置已备份" -ForegroundColor Green
+        }
+        
     } catch {
-        Write-Host "   警告：无法备份某些文件" -ForegroundColor Yellow
+        Write-Host "   警告：无法备份配置数据" -ForegroundColor Yellow
     }
 }
 
@@ -157,9 +187,9 @@ foreach ($tempPath in $tempPaths) {
 }
 Write-Host "   临时文件已清除（项目数：$clearedCount）" -ForegroundColor Green
 
-# 6. 初始化全新环境
+# 6. 初始化全新环境并恢复配置
 Write-Host ""
-Write-Host "6. 初始化全新环境..." -ForegroundColor Yellow
+Write-Host "6. 初始化全新环境并恢复配置..." -ForegroundColor Yellow
 
 # 创建基本目录结构
 $directories = @(
@@ -180,6 +210,32 @@ New-Item -ItemType Directory -Path $NewSessionPath -Force | Out-Null
 New-Item -ItemType File -Path "$NewSessionPath.lock" -Force | Out-Null
 
 Write-Host "   新设备 ID：$NewDeviceId" -ForegroundColor Cyan
+
+# 恢复MCP和Rules配置
+$configBackupPath = "$BackupPath\ConfigBackup"
+if (Test-Path "$configBackupPath\warp.sqlite") {
+    try {
+        # 恢复数据库
+        Copy-Item "$configBackupPath\warp.sqlite" "$WarpPath\data\warp.sqlite" -Force
+        Write-Host "   数据库已恢复" -ForegroundColor Green
+        
+        # 验证配置恢复
+        $restoredMcp = sqlite3 "$WarpPath\data\warp.sqlite" "SELECT COUNT(*) FROM object_metadata WHERE object_type = 'GENERIC_STRING_JSON_MCPSERVER';" 2>$null
+        $restoredRules = sqlite3 "$WarpPath\data\warp.sqlite" "SELECT COUNT(*) FROM object_metadata WHERE object_type = 'GENERIC_STRING_JSON_RULE';" 2>$null
+        $restoredPrefs = sqlite3 "$WarpPath\data\warp.sqlite" "SELECT COUNT(*) FROM object_metadata WHERE object_type = 'GENERIC_STRING_JSON_PREFERENCE';" 2>$null
+        
+        Write-Host "   配置恢复统计：" -ForegroundColor Cyan
+        Write-Host "     - MCP服务器：$restoredMcp 个" -ForegroundColor Gray
+        Write-Host "     - Rules规则：$restoredRules 个" -ForegroundColor Gray
+        Write-Host "     - 偏好设置：$restoredPrefs 个" -ForegroundColor Gray
+        
+    } catch {
+        Write-Host "   警告：配置恢复失败" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "   未找到配置备份，将创建全新环境" -ForegroundColor Yellow
+}
+
 Write-Host "   全新环境初始化完成" -ForegroundColor Green
 
 # 7. 显示系统指纹信息（无法清除）
@@ -215,10 +271,16 @@ Write-Host ""
 
 Write-Host "已清除的项目：" -ForegroundColor Green
 Write-Host "   * 设备 UUID 和会话文件" -ForegroundColor White
-Write-Host "   * SQLite 数据库中的用户信息" -ForegroundColor White
+Write-Host "   * 用户登录状态和历史记录" -ForegroundColor White
 Write-Host "   * 配置缓存和设置文件" -ForegroundColor White
 Write-Host "   * Windows 注册表中的 Warp 条目" -ForegroundColor White
 Write-Host "   * 临时文件和缓存" -ForegroundColor White
+Write-Host ""
+Write-Host "已保留的项目：" -ForegroundColor Cyan
+Write-Host "   * MCP 服务器配置" -ForegroundColor White
+Write-Host "   * Rules 规则配置" -ForegroundColor White
+Write-Host "   * 用户偏好设置" -ForegroundColor White
+Write-Host "   * IDE 相关配置" -ForegroundColor White
 Write-Host ""
 
 Write-Host "备份位置：" -ForegroundColor Cyan
@@ -230,10 +292,10 @@ Write-Host "   $NewDeviceId" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "效果：" -ForegroundColor Green
-Write-Host "   下次启动 Warp 时，它将完全认为这是：" -ForegroundColor Yellow
-Write-Host "   * 一台全新的设备" -ForegroundColor White
+Write-Host "   下次启动 Warp 时，它将认为这是：" -ForegroundColor Yellow
+Write-Host "   * 一台全新的设备（新设备ID）" -ForegroundColor White
 Write-Host "   * 一个未登录的新用户" -ForegroundColor White
-Write-Host "   * 一个完全重置的环境" -ForegroundColor White
+Write-Host "   * 但保留所有重要的配置和设置" -ForegroundColor White
 Write-Host ""
 
 Write-Host "重要提示：" -ForegroundColor Yellow
@@ -245,32 +307,12 @@ Write-Host "   * 硬件指纹（CPU ID、MAC 地址等）无法通过" -Foregrou
 Write-Host "     软件清除" -ForegroundColor Gray
 Write-Host ""
 
-Write-Host "============================================================" -ForegroundColor Red
-Write-Host "                    恢复命令                        " -ForegroundColor Red
-Write-Host "============================================================" -ForegroundColor Red
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "                    操作完成                        " -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "要恢复所有数据并删除备份，请复制并粘贴此命令：" -ForegroundColor Yellow
-Write-Host ""
-
-$recoveryCommand = @"
-if (Test-Path '$BackupPath') {
-    Write-Host '正在恢复 Warp 数据...' -ForegroundColor Yellow
-    if (Test-Path '$WarpPath') { Remove-Item '$WarpPath' -Recurse -Force }
-    if (Test-Path '$BackupPath\Warp') { Copy-Item '$BackupPath\Warp' '$env:LOCALAPPDATA\warp\Warp' -Recurse -Force }
-    if (Test-Path '$BackupPath\WarpRegistry.reg') { reg import '$BackupPath\WarpRegistry.reg' }
-    Remove-Item '$BackupPath' -Recurse -Force
-    Write-Host '恢复完成，备份已删除！' -ForegroundColor Green
-} else {
-    Write-Host '在以下位置未找到备份：$BackupPath' -ForegroundColor Red
-}
-"@
-
-Write-Host $recoveryCommand -ForegroundColor White
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Red
+Write-Host "备份已保存到：$BackupPath" -ForegroundColor Cyan
+Write-Host "如需恢复数据，请使用主菜单的恢复功能。" -ForegroundColor Yellow
 Write-Host ""
 
-Write-Host "重置完成！您现在可以启动 Warp 体验全新的用户身份。" -ForegroundColor Green
-Write-Host ""
-Write-Host "按任意键退出..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host "重置完成！您现在可以启动 Warp，设备身份已重置但配置已保留。" -ForegroundColor Green

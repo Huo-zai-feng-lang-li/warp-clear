@@ -1,4 +1,4 @@
-# 二次 UID 迁移 - 安全中文版本（无交互）
+﻿# 二次 UID 迁移 - 安全中文版本（无交互）
 # 在登录新账号后执行，完成配置对象的所有权转移
 # 确保所有配置正确关联到新登录的账号
 
@@ -48,9 +48,6 @@ $sqlitePath = "$env:USERPROFILE\AppData\Local\warp\Warp\data\warp.sqlite"
 
 if (-not (Test-Path $sqlitePath)) {
     Write-Log "   ! 数据库文件不存在" "Red"
-    Write-Host ""
-    Write-Host "按任意键退出..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 
@@ -59,9 +56,6 @@ $newUserUID = sqlite3 $sqlitePath "SELECT firebase_uid FROM users WHERE is_curre
 
 if ([string]::IsNullOrEmpty($newUserUID)) {
     Write-Log "   ! 未找到当前登录用户，请确认已登录新账号" "Red"
-    Write-Host ""
-    Write-Host "按任意键退出..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 
@@ -98,9 +92,6 @@ if ([string]::IsNullOrEmpty($orphanedObjects)) {
     Write-Log "   ✓ 所有配置已正确关联到当前账号" "Green"
     Write-Log ""
     Write-Log "迁移完成！无需额外操作。" "Green"
-    Write-Host ""
-    Write-Host "按任意键退出..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 0
 }
 
@@ -120,7 +111,7 @@ Write-Log "   - Rules规则: $ruleCount 个" "Gray"
 # Step 3: 备份当前数据
 Write-Log "3. 备份数据库..." "Yellow"
 
-$BackupPath = "$env:USERPROFILE\Desktop\UID_Migration_Backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+$BackupPath = "$env:USERPROFILE\Desktop\warp-migrate-$(Get-Date -Format 'yyyy-MM-dd')"
 New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
 
 Copy-Item $sqlitePath "$BackupPath\warp.sqlite.backup" -Force
@@ -179,9 +170,6 @@ $updateResult = sqlite3 $sqlitePath $updateQuery 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Log "   ! 迁移失败: $updateResult" "Red"
     $updateResult | Out-File -FilePath $ErrorLog -Append -Encoding UTF8
-    Write-Host ""
-    Write-Host "按任意键退出..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 
@@ -313,42 +301,9 @@ Write-Log "  3. 检查MCP服务器进程是否正常运行" "Gray"
 Write-Log ""
 
 Write-Host ""
-Write-Host "============================================================" -ForegroundColor Red
-Write-Host "                    恢复命令                        " -ForegroundColor Red
-Write-Host "============================================================" -ForegroundColor Red
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "                    UID 迁移完成                    " -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "要恢复迁移前的状态并删除备份，请复制并粘贴此命令：" -ForegroundColor Yellow
-Write-Host ""
-
-$recoveryCommand = @"
-if (Test-Path '$BackupPath') {
-    Write-Host '正在恢复迁移前的数据库状态...' -ForegroundColor Yellow
-    
-    # 停止Warp进程
-    Get-Process | Where-Object { `$_.Name -like "*warp*" } | ForEach-Object {
-        Stop-Process -Id `$_.Id -Force -ErrorAction SilentlyContinue
-    }
-    Start-Sleep -Seconds 2
-    
-    # 恢复数据库
-    if (Test-Path '$sqlitePath') { Remove-Item '$sqlitePath' -Force }
-    Copy-Item '$BackupPath\warp.sqlite.backup' '$sqlitePath' -Force
-    
-    # 清理迁移日志
-    if (Test-Path '$MigrationLog') { Remove-Item '$MigrationLog' -Force }
-    if (Test-Path '$ErrorLog') { Remove-Item '$ErrorLog' -Force }
-    
-    Remove-Item '$BackupPath' -Recurse -Force
-    Write-Host 'UID迁移恢复完成，备份已删除！' -ForegroundColor Green
-} else {
-    Write-Host '在以下位置未找到备份：$BackupPath' -ForegroundColor Red
-}
-"@
-
-Write-Host $recoveryCommand -ForegroundColor White
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Red
-Write-Host ""
-
-Write-Host "按任意键退出..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host "备份已保存到：$BackupPath" -ForegroundColor Cyan
+Write-Host "如需恢复数据，请使用主菜单的恢复功能。" -ForegroundColor Yellow

@@ -1,4 +1,4 @@
-# Warp 深度清理脚本 - 全面标识符移除（安全中文版本）
+﻿# Warp 深度清理脚本 - 全面标识符移除（安全中文版本）
 # 此脚本自动查找并移除所有可能的 Warp 标识符
 
 # 安全编码设置，避免闪退
@@ -156,9 +156,6 @@ Write-Host ""
 
 if ($FoundLocations.Count -eq 0 -and $FoundRegistry.Count -eq 0) {
     Write-Host "在此系统上未找到 Warp 安装或数据。" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "按任意键退出..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 0
 }
 
@@ -176,7 +173,7 @@ Write-Host "  4. 重置所有标识符（硬件除外）" -ForegroundColor White
 Write-Host ""
 
 # 创建备份
-$BackupName = "WarpDeepCleanBackup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+$BackupName = "warp-deep-$(Get-Date -Format 'yyyy-MM-dd')"
 $BackupPath = "$env:USERPROFILE\Desktop\$BackupName"
 New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
 
@@ -300,51 +297,8 @@ $($FoundRegistry | ForEach-Object { "  - $_" } | Out-String)
 Write-Host "总结已保存到：$SummaryFile" -ForegroundColor Cyan
 
 Write-Host ""
-Write-Host "============================================================" -ForegroundColor Red
-Write-Host "                    恢复命令                        " -ForegroundColor Red
-Write-Host "============================================================" -ForegroundColor Red
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "                    深度清理完成                    " -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "要恢复所有数据并删除备份，请复制并粘贴此命令：" -ForegroundColor Yellow
-Write-Host ""
-
-$recoveryCommand = @"
-if (Test-Path '$BackupPath') {
-    Write-Host '正在从深度清理备份恢复 Warp 数据...' -ForegroundColor Yellow
-    
-    # 恢复文件位置
-    Get-ChildItem -Path '$BackupPath' -Filter 'Files_*' -Directory | ForEach-Object {
-        `$originalPath = `$_.Name -replace '^Files_', '' -replace '_', '\'
-        `$targetPath = `$originalPath
-        if (`$originalPath -eq 'User Data (Primary)') { `$targetPath = '$env:LOCALAPPDATA\warp\Warp' }
-        elseif (`$originalPath -eq 'User Data (Roaming)') { `$targetPath = '$env:APPDATA\warp' }
-        elseif (`$originalPath -eq 'Program Install (User)') { `$targetPath = '$env:LOCALAPPDATA\Programs\Warp' }
-        elseif (`$originalPath -eq 'Program Install (x64)') { `$targetPath = '${env:ProgramFiles}\Warp' }
-        elseif (`$originalPath -eq 'Program Install (x86)') { `$targetPath = '${env:ProgramFiles(x86)}\Warp' }
-        elseif (`$originalPath -eq 'User Profile Hidden') { `$targetPath = '$env:USERPROFILE\.warp' }
-        elseif (`$originalPath -eq 'User Profile Config') { `$targetPath = '$env:USERPROFILE\.config\warp' }
-        
-        if (Test-Path `$targetPath) { Remove-Item `$targetPath -Recurse -Force }
-        Copy-Item `$_.FullName `$targetPath -Recurse -Force
-        Write-Host "已恢复：`$targetPath" -ForegroundColor Green
-    }
-    
-    # 恢复注册表项
-    Get-ChildItem -Path '$BackupPath' -Filter 'Registry_*.reg' | ForEach-Object {
-        reg import `$_.FullName
-        Write-Host "已恢复注册表：`$(`$_.Name)" -ForegroundColor Green
-    }
-    
-    Remove-Item '$BackupPath' -Recurse -Force
-    Write-Host '深度清理恢复完成，备份已删除！' -ForegroundColor Green
-} else {
-    Write-Host '在以下位置未找到备份：$BackupPath' -ForegroundColor Red
-}
-"@
-
-Write-Host $recoveryCommand -ForegroundColor White
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Red
-Write-Host ""
-
-Write-Host "按任意键退出..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+Write-Host "如需恢复数据，请使用主菜单的恢复功能。" -ForegroundColor Yellow
